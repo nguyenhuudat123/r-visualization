@@ -1,0 +1,146 @@
+---
+title: "Data Visualization - Case Study"
+subtitle: "Data Analytics"
+author: "Jinil Han"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document: 
+    highlight: pygments
+  pdf_document: default
+---
+
+<br/>
+
+### Covid-19 Dataset (2020/01/22 - 2020/03/24)
+
+<br/>
+
+#### 1. 한국을 대상으로 시간의 흐름에 따른 확진자, 완치자, 사망자, 치료중 환자 수의 변화를 하나의 그래프로 시각화해보자.
+
+<br/>
+
+```{r, setting, message=FALSE}
+# 사용할 패키지 추가
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(ggthemes)
+# (Mac 사용자만) ggplot2의 기본 테마에 대해서 한글 깨짐 방지 위해 추가 
+theme_set(theme_gray(base_family='AppleMyungjo'))
+```
+
+```{r, graph1}
+# 데이터파일 읽기
+covid <- read.csv("covid_19_data.csv")
+str(covid)
+
+# 텍스트 형태의 날짜를 Date 객체로 변환
+covid$ObservationDate <- as.Date(covid$ObservationDate, format = "%m/%d/%y")
+str(covid)
+
+# 한국의 데이터만 추출
+covid_kor <- subset(covid, Country.Region == "South Korea")
+str(covid_kor)
+
+# 확진자 수 line plot 작성
+p <- ggplot(covid_kor, aes(x=ObservationDate, y=Confirmed)) + geom_line(color="red") + scale_x_date(date_labels = "%m-%d") + labs(title = "COVID-19 확진 환자 수", x="", y="환자 수", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset") 
+
+p
+
+# 치료 중 환자 수 column 추가
+covid_kor$Current <- covid_kor$Confirmed - covid_kor$Deaths - covid_kor$Recovered
+str(covid_kor)
+
+# 4개의 라인 동시에 추가 (line의 색으로 구분)
+ggplot(covid_kor, aes(x=ObservationDate)) + geom_line(aes(y=Confirmed), color="red") + geom_line(aes(y=Current), color="black") + geom_line(aes(y=Recovered), color="green") + geom_line(aes(y=Deaths), color="blue") + scale_x_date(date_labels = "%m-%d") + labs(title = "COVID-19 환자 수 변화 그래프", x="", y="환자 수", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset")
+
+# aes 함수에 color를 추가한다면 어떻게 될까?
+ggplot(covid_kor, aes(x=ObservationDate)) + geom_line(aes(y=Confirmed, color="red")) + geom_line(aes(y=Current, color="black")) + geom_line(aes(y=Recovered, color="green")) + geom_line(aes(y=Deaths, color="blue")) + scale_x_date(date_labels = "%m-%d") + labs(title = "COVID-19 환자 수 변화 그래프", x="", y="환자 수", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset") 
+
+# scale_color_manual 활용하여 범례 표시 수정
+ggplot(covid_kor, aes(x=ObservationDate)) + geom_line(aes(y=Confirmed, color="con")) + geom_line(aes(y=Current, color="cur")) + geom_line(aes(y=Recovered, color="rec")) + geom_line(aes(y=Deaths, color="dea")) + scale_x_date(date_labels = "%m-%d") + labs(title = "COVID-19 환자 수 변화 그래프", x="", y="환자 수", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset", color="환자 분류") + scale_color_manual(breaks=c("con", "cur", "rec", "dea"),labels=c("확진", "치료중", "완치", "사망"), values=c("red", "black", "green", "blue"))
+
+# 환자 유형을 column으로 가지는 새로운 데이터프레임 생성
+# tidyr 패키지의 gather() 사용
+covid_kor2 <- gather(covid_kor, key="type", value="count", Confirmed:Current)
+str(covid_kor2)
+
+covid_kor2$type <- factor(covid_kor2$type, levels=c("Confirmed", "Current", "Recovered", "Deaths"), labels=c("확진", "치료중","완치","사망"))
+
+# line plot 동시에 작성
+ggplot(covid_kor2, aes(x=ObservationDate, y=count, color= type)) + geom_line() + scale_x_date(date_labels = "%m-%d") + labs(title = "COVID-19 환자 수 변화 그래프", x="", y="환자 수", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset", color="환자 분류")
+```
+
+<br/>
+
+-   이 예와 같이 시각화 전에 먼저 dataframe을 시각화가 용이하도록 구성하는 것이 중요하다.
+
+<br/>
+
+#### 2. 한국, 일본, 이탈리아, 스페인에 대한 COVID-19 환자 수 변화를 한 눈에 비교할 수 있도록 시각화해보자.
+
+<br/>
+
+```{r, graph2}
+# 한국, 이탈리아, 일본, 스페인 데이터 추출
+covid2 <- subset(covid, Country.Region == "South Korea" | Country.Region == "Italy" | Country.Region == "Japan" | Country.Region == "Spain")
+str(covid2)
+
+#치료중 환자 칼럼 추가
+covid2$Current <- covid2$Confirmed - covid2$Deaths - covid2$Recovered
+
+# 환자유형을 column으로 가지는 새로운 데이터프레임 생성
+covid_2s <- gather(covid2, key="type", value="count", Confirmed:Current)
+str(covid_2s)
+
+covid_2s$type <- factor(covid_2s$type, levels=c("Confirmed", "Current", "Recovered", "Deaths"), labels=c("확진", "치료중","완치","사망"))
+
+# 4개 국가의 환자수 변화 그래프를 동시에 시각화
+ggplot(covid_2s, aes(x=ObservationDate, y=count, color=type)) + geom_line() + scale_x_date(date_labels = "%m-%d") + labs(title = "COVID-19 환자 수 변화 그래프", x="", y="환자 수", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset", color="환자 분류") + facet_wrap(~Country.Region) + theme_excel_new() +  theme(text = element_text(family = "AppleMyungjo"))
+```
+
+<br/>
+
+#### 3. 확진자 수가 가장 많은 상위 15개 국가에 대한 확진자 수를 bar chart로 시각화해보자.
+
+<br/>
+
+```{r, graph3}
+# 2020/03/24 시점의 누적 확진자 수 추출
+covid_now <- subset(covid, ObservationDate == "2020-03-24")
+str(covid_now)
+
+# 국가, 환자수 데이터만 추출
+covid_now <- covid_now[, c(4, 6, 7, 8)]
+str(covid_now)
+
+# 국가 하나가 여러 state로 나누어져 있는 경우, 하나의 국가에 대한 값으로 sum
+# aggregate() 함수 사용
+covid_agg <- aggregate(x=covid_now[-1], by=list(covid_now$Country.Region), sum)
+str(covid_agg)
+
+# 확진자 수가 많은 15개의 국가를 추출하기 위해 데이터프레임을 Confirmed에 따라 정렬함
+# dplyr 패키지의 arrange() 함수 사용
+covid_agg_ordered <- arrange(covid_agg, -Confirmed)
+
+# 상위 15개 국가 데이터를 추출
+covid_agg_15 <- covid_agg_ordered[1:15,] 
+
+# bar chart 그리기
+ggplot(covid_agg_15, aes(x=Group.1, y=Confirmed)) + geom_bar(stat="identity") + coord_flip()
+
+# 확진자 수에 따라 bar 정렬
+p <- ggplot(covid_agg_15, aes(x=reorder(Group.1, Confirmed), y=Confirmed)) + geom_bar(stat="identity") + coord_flip()
+
+# label 추가
+p <- p + geom_text(aes(label=Confirmed), hjust=-0.1)
+p
+
+# y축 범위 조정
+p <- p + scale_y_continuous(limits=c(0, 85000))
+p
+
+# customizing
+p + labs(x="", y="확진자 수", title="국가 별 COVID-19 확진자 수", subtitle="2020년 3월 24일 기준", caption = "Source: https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset") + theme_fivethirtyeight() + theme(text = element_text(family = "AppleMyungjo"))
+
+```
